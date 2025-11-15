@@ -1,0 +1,1 @@
+#Class JSONHandler: saves and loads JSON results.
