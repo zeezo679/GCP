@@ -43,3 +43,6 @@ def selection(population):
 
     print(parent_one)
     print(parent_two)
+
+
+
