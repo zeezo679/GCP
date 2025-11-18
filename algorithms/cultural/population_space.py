@@ -58,3 +58,4 @@ class PopulationSpace:
         print(self.calculate_fitness(parent_two))
         print(self.calculate_fitness(child))
         return child
+
