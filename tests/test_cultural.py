@@ -10,7 +10,7 @@ from algorithms.cultural.population_space import PopulationSpace
 from typing import TYPE_CHECKING, List
 
 
-graph_path = project_root / "data" / "sample_graphs" / "graph_two"
+graph_path = project_root / "data" / "sample_graphs" / "graph_three"
 
 saved_population = None
 
@@ -40,11 +40,12 @@ def test_pop_space_operators():
 def test_ca():
     print("Running CA Test")
     pop_size = 200
-    max_stag = 600
+    max_stag = 50
     max_k = 10
     mutation_rate = 0.1
     mutation_increase_factor = 2.0
     ca_runner = CulturalAlgorithm(pop_size, max_stag, max_k,mutation_rate, mutation_increase_factor, graph_path)
+    ca_runner.pop_space.random_graph.show()
     ca_runner.run_ca()
 
 test_ca()

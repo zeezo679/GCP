@@ -22,9 +22,14 @@ class CulturalAlgorithm:
     def run_ca(self):
        start_time = time.time()
 
-       best_ind_belief, initial_pop = self.pop_space.run_estimation_phase()
-       self.belief_space.general_belief = best_ind_belief    # B
+        # With EP
+       initial_bound, initial_pop = self.pop_space.run_estimation_phase()
+       self.belief_space.general_belief = initial_bound # set B
        self.population = initial_pop
+       
+       # Without EP
+       # self.population = self.pop_space.initialize_population(self.initial_upper_bound)
+       
 
        best_initial = min(self.population, key=lambda x: x.fitness)
        print("--- CA Initialization ---")
@@ -47,7 +52,16 @@ class CulturalAlgorithm:
        if final_best.fitness == 0:
            print("Status: SUCCESS - A valid coloring was found!")
        else:
-           print("Status: Local optimum found - Conflicts remain.") 
+           print("Status: Local optimum found - Conflicts remain.")
+       
+       # Return results for web interface
+       return {
+           'best_fitness': final_best.fitness,
+           'best_chromosome': final_best.chromosome,
+           'colors_used': final_best.belief,
+           'execution_time': total_time,
+           'iterations': self.max_stagnation_tries
+       } 
     
     def run_improvement_phase(self):
         T = 0     # Stagnation count
@@ -86,8 +100,9 @@ class CulturalAlgorithm:
             self.population = self.population[:self.pop_size]
 
             # Monitoring 
-            if T % 10 == 0 and T > 0:
+            if T > 0:
                  current_best_fit = self.population[0].fitness
                  current_best_belief = self.population[0].belief
+                
                  print(f"  > T={T} (Stagnant Gens). Conflicts={current_best_fit}, Colors={current_best_belief}")
             

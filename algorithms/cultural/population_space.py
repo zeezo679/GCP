@@ -30,12 +30,12 @@ class PopulationSpace:
         bad_edges = 0
         
         for u, adj in self.random_graph.graph.items():
-            u_color = chromo[u]
+            u_color = chromo[u-1]
 
             for v in adj:
                 #condition to check adjacany once
-                if(v > u):
-                    v_color = chromo[v]
+                if(v >= u):
+                    v_color = chromo[v-1]  
                     if u_color == v_color:
                         bad_edges += 1
         

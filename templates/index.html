@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cultural Algorithm - Graph Coloring Visualization</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Vis.js Network -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        
+        #network-container {
+            width: 100%;
+            height: 500px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .metric-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        }
+        
+        .input-field {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #1e293b;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+        }
+        
+        .btn-primary {
+            background: #6366f1;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary:hover {
+            background: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+        }
+        
+        .status-running {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .sidebar {
+            background: #ffffff;
+            border-right: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body class="font-sans">
+    
+    <div class="flex h-screen">
+        
+        <!-- Left Sidebar - Controls -->
+        <div class="sidebar w-80 p-6 overflow-y-auto">
+            
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-slate-800">
+                    Cultural Algorithm
+                </h1>
+                <p class="text-slate-500 text-sm mt-2">Graph Coloring Problem Solver</p>
+            </div>
+            
+            <!-- Connection Status -->
+            <div class="mb-6 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-slate-600">Connection:</span>
+                    <span id="connection-status" class="text-xs px-2 py-1 rounded bg-slate-200 text-slate-700">
+                        Connecting...
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Graph Selection -->
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2 text-slate-700">Select Graph</label>
+                <div class="flex gap-2">
+                    <select id="graph-select" class="input-field flex-1 px-3 py-2 rounded-lg">
+                        <option value="graph_one">Graph One</option>
+                        <option value="graph_two" selected>Graph Two</option>
+                        <option value="graph_three">Graph Three</option>
+                        <option value="graph_four">Graph Four</option>
+                        <option value="graph_five">Graph Five</option>
+                        <option value="graph_six">Graph Six</option>
+                        <option value="graph_seven">Graph Seven</option>
+                    </select>
+                    <button id="delete-graph-btn" 
+                            class="px-3 py-2 rounded-lg font-semibold text-white shadow bg-red-500 hover:bg-red-600"
+                            title="Delete selected graph">
+                        🗑️
+                    </button>
+                </div>
+                <div id="delete-graph-status" class="mt-2 text-xs text-center hidden"></div>
+            </div>
+            
+            <!-- Custom Graph Input -->
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2 text-slate-700">Add Custom Graph</label>
+                <textarea id="custom-graph-input" 
+                          class="input-field w-full px-3 py-2 rounded-lg font-mono text-sm"
+                          rows="6"
+                          placeholder="Enter edges (one per line):&#10;1 2&#10;1 3&#10;2 3&#10;..."></textarea>
+                <button id="save-graph-btn" 
+                        class="mt-2 w-full px-3 py-2 rounded-lg font-semibold text-sm text-white shadow bg-blue-500 hover:bg-blue-600">
+                    💾 Save as New Graph
+                </button>
+                <div id="save-graph-status" class="mt-2 text-xs text-center hidden"></div>
+            </div>
+            
+            <!-- Parameters -->
+            <div class="space-y-4 mb-6">
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-700">
+                        Population Size: <span id="pop-size-value" class="text-indigo-600">100</span>
+                    </label>
+                    <input type="range" id="pop-size" min="10" max="500" value="100" step="10" 
+                           class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-700">
+                        Max Stagnation: <span id="stagnation-value" class="text-indigo-600">50</span>
+                    </label>
+                    <input type="range" id="stagnation" min="10" max="200" value="50" step="10" 
+                           class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-700">
+                        Mutation Rate: <span id="mutation-value" class="text-indigo-600">0.1</span>
+                    </label>
+                    <input type="range" id="mutation" min="0.01" max="1.0" value="0.1" step="0.01" 
+                           class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-semibold mb-2 text-slate-700">
+                        Max Colors (k): <span id="max-k-value" class="text-indigo-600">10</span>
+                    </label>
+                    <input type="range" id="max-k" min="2" max="20" value="10" step="1" 
+                           class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-slate-200">
+                </div>
+                
+                <div class="pt-3 border-t border-slate-200">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="checkbox" id="fixed-seed" 
+                               class="w-4 h-4 rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500">
+                        <span class="text-sm text-slate-700">
+                            <span class="font-semibold">Fixed Seed</span>
+                            <span class="block text-xs text-slate-500 mt-1">Use same initial population for reproducible results</span>
+                        </span>
+                    </label>
+                </div>
+                
+            </div>
+            
+            <!-- Control Buttons -->
+            <div class="space-y-3">
+                <button id="start-btn" class="btn-primary w-full px-4 py-3 rounded-lg font-semibold text-white shadow-lg">
+                    🚀 Start Simulation
+                </button>
+                <button id="stop-btn" class="btn-danger w-full px-4 py-3 rounded-lg font-semibold text-white shadow-lg hidden">
+                    ⏹️ Stop Simulation
+                </button>
+                <button id="download-btn" class="w-full px-4 py-3 rounded-lg font-semibold text-white shadow-lg bg-green-500 hover:bg-green-600 hidden">
+                    📊 Download Charts
+                </button>
+            </div>
+            
+            <!-- Current Metrics -->
+            <div class="mt-8 space-y-3">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">📊 Live Metrics</h3>
+                
+                <div class="metric-card p-3 rounded-lg">
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Generation</div>
+                    <div id="metric-generation" class="text-2xl font-bold text-indigo-600">0</div>
+                </div>
+                
+                <div class="metric-card p-3 rounded-lg">
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Best Fitness</div>
+                    <div id="metric-fitness" class="text-2xl font-bold text-green-600">-</div>
+                </div>
+                
+                <div class="metric-card p-3 rounded-lg">
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Colors Used</div>
+                    <div id="metric-colors" class="text-2xl font-bold text-purple-600">-</div>
+                </div>
+                
+                <div class="metric-card p-3 rounded-lg">
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Stagnation</div>
+                    <div id="metric-stagnation" class="text-2xl font-bold text-orange-600">0</div>
+                </div>
+                
+                <div class="metric-card p-3 rounded-lg">
+                    <div class="text-xs text-slate-500 uppercase tracking-wide">Status</div>
+                    <div id="metric-status" class="text-lg font-semibold text-slate-700">Idle</div>
+                </div>
+            </div>
+            
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="flex-1 p-6 overflow-y-auto">
+            
+            <!-- Top Section - Graph Network Visualization -->
+            <div class="mb-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">🎨 Graph Network</h2>
+                        <div class="text-sm text-slate-600">
+                            <span id="graph-info">Nodes: - | Edges: -</span>
+                        </div>
+                    </div>
+                    <div id="network-container"></div>
+                    <div class="mt-4 flex items-center justify-center space-x-6 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #94a3b8;"></div>
+                            <span class="text-slate-600">Valid Edge</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 rounded-full mr-2" style="background-color: #ef4444;"></div>
+                            <span class="text-slate-600">Conflict (Same Color)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hidden canvases for chart generation (not displayed) -->
+            <div style="display: none;">
+                <canvas id="fitness-chart" width="800" height="400"></canvas>
+                <canvas id="belief-chart" width="800" height="400"></canvas>
+            </div>
+            
+        </div>
+        
+    </div>
+    
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // Global state
+        let network = null;
+        let fitnessChart = null;
+        let beliefChart = null;
+        let graphData = { nodes: [], edges: [] };
+        let currentChromosome = [];
+        let generationData = {
+            generations: [],
+            fitness: [],
+            belief: [],
+            colors_used: []
+        };
+        let currentParams = {
+            pop_size: 100,
+            mutation_rate: 0.1,
+            max_k: 10,
+            max_stagnation: 50,
+            graph_name: 'graph_two',
+            num_nodes: 0,
+            num_edges: 0
+        };
+        let lastUpdateTime = 0;
+        let updateThrottle = 100; // ms between updates
+        let isLargeGraph = false;
+        let physicsEnabled = true;
+        
+        // Generate distinct colors using HSL color space
+        // This ensures each color number gets a unique, visually distinct color
+        const colorCache = {};
+        
+        function generateColorForNumber(colorNumber) {
+            if (colorCache[colorNumber]) {
+                return colorCache[colorNumber];
+            }
+            
+            // Use golden ratio conjugate for optimal color distribution
+            const goldenRatioConjugate = 0.618033988749895;
+            const hue = (colorNumber * goldenRatioConjugate * 360) % 360;
+            
+            // Use high saturation and medium lightness for vibrant, distinct colors
+            const saturation = 70 + (colorNumber % 3) * 10; // 70-90%
+            const lightness = 50 + (colorNumber % 2) * 5; // 50-55%
+            
+            const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+            colorCache[colorNumber] = color;
+            return color;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSliders();
+            initializeCharts();
+            loadGraph('graph_two');
+            
+            document.getElementById('start-btn').addEventListener('click', startSimulation);
+            document.getElementById('stop-btn').addEventListener('click', stopSimulation);
+            document.getElementById('download-btn').addEventListener('click', downloadCharts);
+            document.getElementById('save-graph-btn').addEventListener('click', saveCustomGraph);
+            document.getElementById('delete-graph-btn').addEventListener('click', deleteGraph);
+            document.getElementById('graph-select').addEventListener('change', (e) => {
+                loadGraph(e.target.value);
+            });
+        });
+        
+        // Socket events
+        socket.on('connect', () => {
+            updateConnectionStatus('connected');
+        });
+        
+        socket.on('disconnect', () => {
+            updateConnectionStatus('disconnected');
+        });
+        
+        socket.on('connection_response', (data) => {
+            console.log('Connected to server:', data);
+        });
+        
+        socket.on('generation_update', (data) => {
+            console.log('Generation update:', data);
+            updateMetrics(data);
+            updateVisualization(data);
+            updateCharts(data);
+        });
+        
+        socket.on('simulation_complete', (data) => {
+            console.log('Simulation complete:', data);
+            
+            // Update final metrics
+            document.getElementById('metric-generation').textContent = data.total_generations || generationData.generations.length;
+            document.getElementById('metric-fitness').textContent = data.best_fitness;
+            document.getElementById('metric-colors').textContent = data.colors_used;
+            document.getElementById('metric-status').textContent = data.status === 'success' ? '✓ Success!' : 'Completed';
+            document.getElementById('metric-status').classList.remove('status-running');
+            
+            // Update final visualization with best chromosome
+            if (data.best_chromosome) {
+                updateVisualization({
+                    chromosome: data.best_chromosome,
+                    best_fitness: data.best_fitness,
+                    generation: data.total_generations
+                });
+            }
+            
+            // Ensure charts have final data
+            if (generationData.generations.length === 0) {
+                // Handle case where simulation finished too quickly
+                generationData.generations.push(1);
+                generationData.fitness.push(data.best_fitness);
+                generationData.belief.push(data.colors_used);
+                fitnessChart.data.labels = generationData.generations;
+                fitnessChart.data.datasets[0].data = generationData.fitness;
+                beliefChart.data.labels = generationData.generations;
+                beliefChart.data.datasets[0].data = generationData.belief;
+            }
+            
+            // Update UI state
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('stop-btn').classList.add('hidden');
+            document.getElementById('download-btn').classList.remove('hidden');
+            
+            // Show completion message
+            setTimeout(() => {
+                alert(`Simulation Complete!\n\nFitness: ${data.best_fitness}\nColors Used: ${data.colors_used}\nGenerations: ${data.total_generations}\nTime: ${data.execution_time.toFixed(2)}s`);
+            }, 100);
+        });
+        
+        socket.on('simulation_started', (data) => {
+            console.log('Simulation started');
+            document.getElementById('start-btn').classList.add('hidden');
+            document.getElementById('stop-btn').classList.remove('hidden');
+            document.getElementById('download-btn').classList.add('hidden');
+            resetData();
+            
+            // Update chart titles with current parameters
+            fitnessChart.options.plugins.title.text = [
+                'Fitness Evolution Over Generations',
+                `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+            ];
+            fitnessChart.update('none');
+            
+            beliefChart.options.plugins.title.text = [
+                'Belief Constraint vs Colors Used Over Generations',
+                `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+            ];
+            beliefChart.update('none');
+        });
+        
+        socket.on('simulation_stopped', (data) => {
+            console.log('Simulation stopped');
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('stop-btn').classList.add('hidden');
+            document.getElementById('metric-status').textContent = 'Stopped';
+        });
+        
+        socket.on('error', (data) => {
+            console.error('Error:', data);
+            alert('Error: ' + data.message);
+            document.getElementById('start-btn').classList.remove('hidden');
+            document.getElementById('stop-btn').classList.add('hidden');
+            document.getElementById('metric-status').textContent = 'Error';
+            document.getElementById('metric-status').classList.remove('status-running');
+        });
+        
+        // Initialize slider values
+        function initializeSliders() {
+            const sliders = [
+                { id: 'pop-size', valueId: 'pop-size-value' },
+                { id: 'stagnation', valueId: 'stagnation-value' },
+                { id: 'mutation', valueId: 'mutation-value' },
+                { id: 'max-k', valueId: 'max-k-value' }
+            ];
+            
+            sliders.forEach(slider => {
+                const input = document.getElementById(slider.id);
+                const display = document.getElementById(slider.valueId);
+                
+                input.addEventListener('input', (e) => {
+                    display.textContent = e.target.value;
+                });
+            });
+        }
+        
+        // Load graph structure from backend
+        async function loadGraph(graphName) {
+            try {
+                const response = await fetch(`/api/graph/${graphName}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Validate data structure
+                if (!data || !data.nodes || !data.edges) {
+                    throw new Error('Invalid graph data received from server');
+                }
+                
+                if (data.nodes.length === 0) {
+                    throw new Error('Graph has no nodes');
+                }
+                
+                graphData = data;
+                
+                // Store graph info in currentParams
+                currentParams.num_nodes = data.nodes.length;
+                currentParams.num_edges = data.edges.length;
+                
+                // Update chart titles with graph info
+                if (fitnessChart) {
+                    fitnessChart.options.plugins.title.text = [
+                        'Fitness Evolution Over Generations',
+                        `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+                    ];
+                }
+                if (beliefChart) {
+                    beliefChart.options.plugins.title.text = [
+                        'Belief Constraint vs Colors Used Over Generations',
+                        `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+                    ];
+                }
+                
+                // Show graph info
+                document.getElementById('graph-info').textContent = 
+                    `Nodes: ${data.nodes.length} | Edges: ${data.edges.length}`;
+                
+                // Initialize network with validated data
+                await initializeNetwork(data);
+                
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                document.getElementById('graph-info').textContent = `Error: ${error.message}`;
+                alert('Error loading graph: ' + error.message);
+            }
+        }
+        
+        // Initialize Vis.js Network
+        async function initializeNetwork(data) {
+            try {
+                const container = document.getElementById('network-container');
+                
+                // Destroy existing network if it exists
+                if (network) {
+                    network.destroy();
+                    network = null;
+                }
+                
+                // Validate data
+                if (!data || !data.nodes || !Array.isArray(data.nodes)) {
+                    throw new Error('Invalid node data');
+                }
+                
+                if (!data.edges || !Array.isArray(data.edges)) {
+                    throw new Error('Invalid edge data');
+                }
+                
+                console.log(`Initializing network with ${data.nodes.length} nodes and ${data.edges.length} edges`);
+                
+                // Performance optimization based on graph size
+                isLargeGraph = data.nodes.length > 50;
+                const isVeryLargeGraph = data.nodes.length > 200;
+                
+                // Adaptive node size and labels
+                const nodeSize = isVeryLargeGraph ? 3 : (isLargeGraph ? 10 : 20);
+                const showLabels = !isVeryLargeGraph;
+                const iterations = isVeryLargeGraph ? 30 : (isLargeGraph ? 50 : 100);
+                
+                // Create node dataset with validation
+                const nodes = new vis.DataSet(data.nodes.map(node => {
+                    if (!node || node.id === undefined) {
+                        console.warn('Invalid node:', node);
+                        return null;
+                    }
+                    return {
+                        id: node.id,
+                        label: showLabels ? String(node.label || node.id) : undefined,
+                        color: {
+                            background: '#475569',
+                            border: '#1e293b',
+                            highlight: { background: '#6366f1', border: '#4f46e5' }
+                        },
+                        font: showLabels ? { color: '#1e293b', size: 14, face: 'Arial', bold: true } : undefined
+                    };
+                }).filter(node => node !== null));
+                
+                // Create edge dataset with validation
+                const edges = new vis.DataSet(data.edges.map((edge, idx) => {
+                    if (!edge || edge.from === undefined || edge.to === undefined) {
+                        console.warn('Invalid edge:', edge);
+                        return null;
+                    }
+                    return {
+                        id: idx,
+                        from: edge.from,
+                        to: edge.to,
+                        color: { color: '#cbd5e1', highlight: '#6366f1' },
+                        width: isVeryLargeGraph ? 0.5 : (isLargeGraph ? 1 : 2)
+                    };
+                }).filter(edge => edge !== null));
+                
+                console.log(`Created ${nodes.length} nodes and ${edges.length} edges`);
+                
+                const networkData = { nodes, edges };
+                
+                // Determine if graph has many edges (needs more spacing)
+                const hasManyEdges = data.edges.length > 50;
+            
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: nodeSize,
+                    borderWidth: isVeryLargeGraph ? 0 : (isLargeGraph ? 1 : 2),
+                    shadow: !isLargeGraph,
+                    font: showLabels ? { size: 14 } : undefined
+                },
+                edges: {
+                    smooth: { 
+                        enabled: !isLargeGraph,
+                        type: 'continuous' 
+                    },
+                    shadow: !isLargeGraph,
+                    width: isVeryLargeGraph ? 0.5 : undefined
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: { 
+                        iterations: iterations,
+                        fit: true
+                    },
+                    barnesHut: {
+                        gravitationalConstant: hasManyEdges ? -15000 : (isVeryLargeGraph ? -5000 : -2000),
+                        springLength: hasManyEdges ? 350 : (isVeryLargeGraph ? 9 : 100),
+                        springConstant: hasManyEdges ? 0.01 : 0.04,
+                        avoidOverlap: isVeryLargeGraph ? 0 : 0.8
+                    }
+                },
+                interaction: {
+                    hover: !isLargeGraph,
+                    zoomView: true,
+                    dragView: true,
+                    tooltipDelay: 300,
+                    navigationButtons: isVeryLargeGraph
+                }
+            };
+                
+                // Create network
+                network = new vis.Network(container, networkData, options);
+                
+                // Add error handler
+                network.on('error', (error) => {
+                    console.error('Network error:', error);
+                });
+                
+                // Disable physics after stabilization for better performance
+                network.once('stabilizationIterationsDone', () => {
+                    network.setOptions({ physics: false });
+                    physicsEnabled = false;
+                    console.log('Physics disabled for performance');
+                });
+                
+                console.log('Network initialized successfully');
+                
+            } catch (error) {
+                console.error('Error initializing network:', error);
+                throw error;
+            }
+        }
+        
+        // Update network visualization with chromosome
+        function updateVisualization(data) {
+            if (!network || !data.chromosome) return;
+            
+            // Throttle updates for performance on large graphs
+            const now = Date.now();
+            if (isLargeGraph && (now - lastUpdateTime) < updateThrottle) {
+                return;
+            }
+            lastUpdateTime = now;
+            
+            currentChromosome = data.chromosome;
+            
+            // Update node colors based on chromosome (batch update for performance)
+            const nodes = network.body.data.nodes;
+            const nodeIds = nodes.getIds();
+            
+            // Create mapping from node ID to chromosome index
+            const sortedNodeIds = [...nodeIds].sort((a, b) => a - b);
+            const nodeToIndex = {};
+            sortedNodeIds.forEach((nodeId, idx) => {
+                nodeToIndex[nodeId] = idx;
+            });
+            
+            // Batch update all nodes at once
+            const nodeUpdates = [];
+            nodeIds.forEach(nodeId => {
+                const idx = nodeToIndex[nodeId];
+                if (idx < currentChromosome.length) {
+                    const colorNumber = currentChromosome[idx];
+                    const color = generateColorForNumber(colorNumber);
+                    
+                    nodeUpdates.push({
+                        id: nodeId,
+                        color: {
+                            background: color,
+                            border: '#1e293b',
+                            highlight: { background: color, border: '#000000' }
+                        }
+                    });
+                }
+            });
+            
+            if (nodeUpdates.length > 0) {
+                nodes.update(nodeUpdates);
+            }
+            
+            // Update edge colors (red if conflict, grey if valid) - batch update
+            const edges = network.body.data.edges;
+            const edgeIds = edges.getIds();
+            
+            // Batch update all edges at once
+            const edgeUpdates = [];
+            edgeIds.forEach(edgeId => {
+                const edge = edges.get(edgeId);
+                const fromIdx = nodeToIndex[edge.from];
+                const toIdx = nodeToIndex[edge.to];
+                
+                if (fromIdx < currentChromosome.length && toIdx < currentChromosome.length) {
+                    const fromColor = currentChromosome[fromIdx];
+                    const toColor = currentChromosome[toIdx];
+                    
+                    const isConflict = fromColor === toColor;
+                    
+                    edgeUpdates.push({
+                        id: edgeId,
+                        color: { 
+                            color: isConflict ? '#ef4444' : '#cbd5e1',
+                            highlight: isConflict ? '#dc2626' : '#6366f1'
+                        },
+                        width: isConflict ? (isLargeGraph ? 2 : 4) : (isLargeGraph ? 1 : 2)
+                    });
+                }
+            });
+            
+            if (edgeUpdates.length > 0) {
+                edges.update(edgeUpdates);
+            }
+        }
+        
+        // Initialize Chart.js charts (hidden, for download only)
+        function initializeCharts() {
+            const chartOptions = {
+                responsive: false,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { 
+                        display: true,
+                        labels: { color: '#1f2937', font: { size: 14, weight: 'bold' } }
+                    },
+                    title: {
+                        display: true,
+                        color: '#1f2937',
+                        font: { size: 18, weight: 'bold' }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: '#e5e7eb' },
+                        ticks: { color: '#374151', font: { size: 12 } },
+                        title: { display: true, text: 'Generation', color: '#1f2937', font: { size: 14, weight: 'bold' } }
+                    },
+                    y: {
+                        grid: { color: '#e5e7eb' },
+                        ticks: { color: '#374151', font: { size: 12 } },
+                        beginAtZero: true
+                    }
+                }
+            };
+            
+            // Fitness Chart
+            const fitnessCtx = document.getElementById('fitness-chart').getContext('2d');
+            fitnessChart = new Chart(fitnessCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Fitness (Conflicts)',
+                        data: [],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#10b981'
+                    }]
+                },
+                options: { 
+                    ...chartOptions, 
+                    plugins: { 
+                        ...chartOptions.plugins, 
+                        title: { 
+                            ...chartOptions.plugins.title, 
+                            text: ['Fitness Evolution Over Generations', 
+                                   `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`]
+                        }
+                    },
+                    scales: { 
+                        ...chartOptions.scales, 
+                        y: { 
+                            ...chartOptions.scales.y, 
+                            title: { display: true, text: 'Conflicts', color: '#1f2937', font: { size: 14, weight: 'bold' } } 
+                        } 
+                    } 
+                }
+            });
+            
+            // General Belief Chart
+            const beliefCtx = document.getElementById('belief-chart').getContext('2d');
+            beliefChart = new Chart(beliefCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'General Belief (Max Colors Allowed)',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: false,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#8b5cf6',
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'Colors Used (Best Solution)',
+                            data: [],
+                            borderColor: '#ec4899',
+                            backgroundColor: 'rgba(236, 72, 153, 0.2)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            pointBackgroundColor: '#ec4899'
+                        }
+                    ]
+                },
+                options: { 
+                    ...chartOptions, 
+                    plugins: { 
+                        ...chartOptions.plugins, 
+                        title: { 
+                            ...chartOptions.plugins.title, 
+                            text: ['Belief Constraint vs Colors Used Over Generations', 
+                                   `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`]
+                        }
+                    },
+                    scales: { 
+                        ...chartOptions.scales, 
+                        y: { 
+                            ...chartOptions.scales.y, 
+                            title: { display: true, text: 'Number of Colors', color: '#1f2937', font: { size: 14, weight: 'bold' } } 
+                        } 
+                    } 
+                }
+            });
+
+        }
+        
+        // Update charts with new data
+        function updateCharts(data) {
+            generationData.generations.push(data.generation);
+            generationData.fitness.push(data.best_fitness);
+            generationData.belief.push(data.general_belief);
+            generationData.colors_used.push(data.colors_used);
+            
+            // Limit data points for performance
+            const maxPoints = 100;
+            if (generationData.generations.length > maxPoints) {
+                generationData.generations.shift();
+                generationData.fitness.shift();
+                generationData.belief.shift();
+                generationData.colors_used.shift();
+            }
+            
+            // Update chart data in background (charts are hidden)
+            fitnessChart.data.labels = generationData.generations;
+            fitnessChart.data.datasets[0].data = generationData.fitness;
+            
+            beliefChart.data.labels = generationData.generations;
+            beliefChart.data.datasets[0].data = generationData.belief;
+            beliefChart.data.datasets[1].data = generationData.colors_used;
+        }
+        
+        // Update metrics display
+        function updateMetrics(data) {
+            document.getElementById('metric-generation').textContent = data.generation;
+            document.getElementById('metric-fitness').textContent = data.best_fitness;
+            document.getElementById('metric-colors').textContent = data.colors_used;
+            document.getElementById('metric-stagnation').textContent = data.stagnation;
+            document.getElementById('metric-status').textContent = 'Running...';
+            document.getElementById('metric-status').classList.add('status-running');
+        }
+        
+        // Update connection status
+        function updateConnectionStatus(status) {
+            const statusEl = document.getElementById('connection-status');
+            if (status === 'connected') {
+                statusEl.textContent = '● Connected';
+                statusEl.classList.remove('bg-slate-200', 'text-slate-700');
+                statusEl.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                statusEl.textContent = '● Disconnected';
+                statusEl.classList.remove('bg-green-100', 'text-green-700');
+                statusEl.classList.add('bg-red-100', 'text-red-700');
+            }
+        }
+        
+        // Start simulation
+        function startSimulation() {
+            const params = {
+                pop_size: parseInt(document.getElementById('pop-size').value),
+                max_stagnation: parseInt(document.getElementById('stagnation').value),
+                mutation_rate: parseFloat(document.getElementById('mutation').value),
+                max_k: parseInt(document.getElementById('max-k').value),
+                graph_name: document.getElementById('graph-select').value,
+                fixed_seed: document.getElementById('fixed-seed').checked
+            };
+            
+            // Update current parameters while preserving num_nodes and num_edges
+            currentParams.pop_size = params.pop_size;
+            currentParams.max_stagnation = params.max_stagnation;
+            currentParams.mutation_rate = params.mutation_rate;
+            currentParams.max_k = params.max_k;
+            currentParams.graph_name = params.graph_name;
+            
+            console.log('Starting simulation with params:', params);
+            socket.emit('start_simulation', params);
+        }
+        
+        // Stop simulation
+        function stopSimulation() {
+            socket.emit('stop_simulation');
+        }
+        
+        // Reset data
+        function resetData() {
+            generationData = { generations: [], fitness: [], belief: [], colors_used: [] };
+            
+            fitnessChart.data.labels = [];
+            fitnessChart.data.datasets[0].data = [];
+            fitnessChart.update();
+            
+            beliefChart.data.labels = [];
+            beliefChart.data.datasets[0].data = [];
+            beliefChart.data.datasets[1].data = [];
+            beliefChart.update();
+            
+            document.getElementById('metric-generation').textContent = '0';
+            document.getElementById('metric-fitness').textContent = '-';
+            document.getElementById('metric-colors').textContent = '-';
+            document.getElementById('metric-stagnation').textContent = '0';
+            document.getElementById('metric-status').textContent = 'Starting...';
+        }
+        
+        // Download charts as images
+        function downloadCharts() {
+            if (generationData.generations.length === 0) {
+                alert('No data available. Please run a simulation first.');
+                return;
+            }
+            
+            // Update chart titles with current parameters before downloading
+            fitnessChart.options.plugins.title.text = [
+                'Fitness Evolution Over Generations',
+                `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+            ];
+            
+            beliefChart.options.plugins.title.text = [
+                'Belief Constraint vs Colors Used Over Generations',
+                `Graph: ${currentParams.num_nodes} nodes, ${currentParams.num_edges} edges | Pop: ${currentParams.pop_size} | Mutation: ${currentParams.mutation_rate} | Max Colors: ${currentParams.max_k}`
+            ];
+            
+            // Force chart updates with animation to ensure proper rendering
+            fitnessChart.update('active');
+            beliefChart.update('active');
+            
+            // Wait for charts to finish rendering
+            setTimeout(() => {
+                // Download Fitness Chart
+                const fitnessCanvas = document.getElementById('fitness-chart');
+                const fitnessLink = document.createElement('a');
+                fitnessLink.download = `fitness_evolution_${Date.now()}.png`;
+                fitnessLink.href = fitnessCanvas.toDataURL('image/png', 1.0);
+                fitnessLink.click();
+                
+                // Download Belief Chart
+                setTimeout(() => {
+                    const beliefCanvas = document.getElementById('belief-chart');
+                    const beliefLink = document.createElement('a');
+                    beliefLink.download = `general_belief_${Date.now()}.png`;
+                    beliefLink.href = beliefCanvas.toDataURL('image/png', 1.0);
+                    beliefLink.click();
+                    
+                    alert('Charts downloaded successfully!');
+                }, 200);
+            }, 500);
+        }
+        
+        // Save custom graph
+        async function saveCustomGraph() {
+            const graphInput = document.getElementById('custom-graph-input').value.trim();
+            const statusEl = document.getElementById('save-graph-status');
+            
+            if (!graphInput) {
+                statusEl.textContent = '⚠️ Please enter graph edges';
+                statusEl.className = 'mt-2 text-xs text-center text-yellow-400';
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                return;
+            }
+            
+            // Validate format
+            const lines = graphInput.split('\n').filter(line => line.trim());
+            const edges = [];
+            
+            for (let line of lines) {
+                const parts = line.trim().split(/\s+/);
+                if (parts.length !== 2) {
+                    statusEl.textContent = '⚠️ Invalid format. Each line must have exactly 2 numbers';
+                    statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                    return;
+                }
+                
+                const u = parseInt(parts[0]);
+                const v = parseInt(parts[1]);
+                
+                if (isNaN(u) || isNaN(v) || u <= 0 || v <= 0) {
+                    statusEl.textContent = '⚠️ Invalid format. Node IDs must be positive integers';
+                    statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                    return;
+                }
+                
+                edges.push([u, v]);
+            }
+            
+            // Send to backend
+            try {
+                const response = await fetch('/api/save-graph', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ edges: edges })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    statusEl.textContent = `✓ Saved as ${result.graph_name}`;
+                    statusEl.className = 'mt-2 text-xs text-center text-green-400';
+                    statusEl.classList.remove('hidden');
+                    
+                    // Add to dropdown
+                    const select = document.getElementById('graph-select');
+                    const option = document.createElement('option');
+                    option.value = result.graph_name;
+                    option.textContent = result.graph_name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    option.selected = true;
+                    select.appendChild(option);
+                    
+                    // Load the new graph
+                    loadGraph(result.graph_name);
+                    
+                    // Clear input
+                    document.getElementById('custom-graph-input').value = '';
+                    
+                    setTimeout(() => statusEl.classList.add('hidden'), 5000);
+                } else {
+                    statusEl.textContent = `⚠️ Error: ${result.error}`;
+                    statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                }
+            } catch (error) {
+                statusEl.textContent = `⚠️ Error: ${error.message}`;
+                statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+            }
+        }
+        
+        // Delete graph
+        async function deleteGraph() {
+            const select = document.getElementById('graph-select');
+            const graphName = select.value;
+            const statusEl = document.getElementById('delete-graph-status');
+            
+            // Prevent deleting default graphs (graph_one through graph_seven)
+            const defaultGraphs = ['graph_one', 'graph_two', 'graph_three', 'graph_four', 
+                                   'graph_five', 'graph_six', 'graph_seven'];
+            
+            if (defaultGraphs.includes(graphName)) {
+                statusEl.textContent = '⚠️ Cannot delete default graphs';
+                statusEl.className = 'mt-2 text-xs text-center text-yellow-400';
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                return;
+            }
+            
+            // Confirm deletion
+            const confirmed = confirm(`Are you sure you want to delete "${graphName}"?`);
+            if (!confirmed) return;
+            
+            try {
+                const response = await fetch('/api/delete-graph', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ graph_name: graphName })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    statusEl.textContent = `✓ Deleted ${graphName}`;
+                    statusEl.className = 'mt-2 text-xs text-center text-green-400';
+                    statusEl.classList.remove('hidden');
+                    
+                    // Remove from dropdown
+                    select.options[select.selectedIndex].remove();
+                    
+                    // Select graph_two as default
+                    select.value = 'graph_two';
+                    loadGraph('graph_two');
+                    
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                } else {
+                    statusEl.textContent = `⚠️ Error: ${result.error}`;
+                    statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                    statusEl.classList.remove('hidden');
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                }
+            } catch (error) {
+                statusEl.textContent = `⚠️ Error: ${error.message}`;
+                statusEl.className = 'mt-2 text-xs text-center text-red-400';
+                statusEl.classList.remove('hidden');
+                setTimeout(() => statusEl.classList.add('hidden'), 3000);
+            }
+        }
+    </script>
+    
+</body>
+</html>
