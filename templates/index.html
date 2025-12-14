@@ -139,9 +139,31 @@
                 <div id="delete-graph-status" class="mt-2 text-xs text-center hidden"></div>
             </div>
             
+            <!-- Smart Generator -->
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2 text-slate-700">⚡ Smart Generator</label>
+                <div style="background: #f8fafc; padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs text-slate-600">Nodes</label>
+                            <input type="number" id="gen-nodes" class="input-field" value="30" min="5" max="200" style="padding: 0.4rem;">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-600">Density</label>
+                            <input type="number" id="gen-density" class="input-field" value="0.8" min="0.1" max="1.0" step="0.1" style="padding: 0.4rem;">
+                        </div>
+                    </div>
+                    <button id="generate-graph-btn" 
+                            class="w-full px-3 py-2 rounded-lg font-semibold text-sm text-white shadow bg-green-500 hover:bg-green-600">
+                        🌌 Generate Graph
+                    </button>
+                    <div id="gen-status" class="mt-2 text-xs text-center text-slate-500 hidden"></div>
+                </div>
+            </div>
+            
             <!-- Custom Graph Input -->
             <div class="mb-6">
-                <label class="block text-sm font-semibold mb-2 text-slate-700">Add Custom Graph</label>
+                <label class="block text-sm font-semibold mb-2 text-slate-700">✏️ Add Custom Graph</label>
                 <textarea id="custom-graph-input" 
                           class="input-field w-full px-3 py-2 rounded-lg font-mono text-sm"
                           rows="6"
@@ -219,7 +241,7 @@
                     ⏹️ Stop Simulation
                 </button>
                 <button id="download-btn" class="w-full px-4 py-3 rounded-lg font-semibold text-white shadow-lg bg-green-500 hover:bg-green-600 hidden">
-                    📊 Download Charts
+                    Save Charts to Plots
                 </button>
             </div>
             
@@ -343,16 +365,49 @@
             return color;
         }
         
+        // Load available graphs into dropdown
+        async function loadAvailableGraphs() {
+            try {
+                const response = await fetch('/api/graphs');
+                const graphs = await response.json();
+                
+                const select = document.getElementById('graph-select');
+                const currentValue = select.value;
+                
+                // Clear and repopulate
+                select.innerHTML = '';
+                
+                // Sort graphs by name
+                graphs.sort((a, b) => a.name.localeCompare(b.name));
+                
+                graphs.forEach(graph => {
+                    const option = document.createElement('option');
+                    option.value = graph.name;
+                    option.textContent = `${graph.name} (${graph.nodes} nodes, ${graph.edges} edges)`;
+                    select.appendChild(option);
+                });
+                
+                // Restore previous selection if it still exists
+                if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+                    select.value = currentValue;
+                }
+            } catch (error) {
+                console.error('Error loading available graphs:', error);
+            }
+        }
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             initializeSliders();
             initializeCharts();
+            loadAvailableGraphs();
             loadGraph('graph_two');
             
             document.getElementById('start-btn').addEventListener('click', startSimulation);
             document.getElementById('stop-btn').addEventListener('click', stopSimulation);
             document.getElementById('download-btn').addEventListener('click', downloadCharts);
             document.getElementById('save-graph-btn').addEventListener('click', saveCustomGraph);
+            document.getElementById('generate-graph-btn').addEventListener('click', generateGraph);
             document.getElementById('delete-graph-btn').addEventListener('click', deleteGraph);
             document.getElementById('graph-select').addEventListener('change', (e) => {
                 loadGraph(e.target.value);
@@ -553,8 +608,8 @@
                 console.log(`Initializing network with ${data.nodes.length} nodes and ${data.edges.length} edges`);
                 
                 // Performance optimization based on graph size
-                isLargeGraph = data.nodes.length > 50;
-                const isVeryLargeGraph = data.nodes.length > 200;
+                isLargeGraph = data.nodes.length > 50 && data.edges.length > 500;
+                const isVeryLargeGraph = data.nodes.length > 200 && data.edges.length > 2000;
                 
                 // Adaptive node size and labels
                 const nodeSize = isVeryLargeGraph ? 3 : (isLargeGraph ? 10 : 20);
@@ -744,6 +799,18 @@
         
         // Initialize Chart.js charts (hidden, for download only)
         function initializeCharts() {
+            // Plugin to add white background to charts
+            const whiteBackgroundPlugin = {
+                id: 'whiteBackground',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, chart.width, chart.height);
+                    ctx.restore();
+                }
+            };
+            
             const chartOptions = {
                 responsive: false,
                 maintainAspectRatio: true,
@@ -776,6 +843,7 @@
             const fitnessCtx = document.getElementById('fitness-chart').getContext('2d');
             fitnessChart = new Chart(fitnessCtx, {
                 type: 'line',
+                plugins: [whiteBackgroundPlugin],
                 data: {
                     labels: [],
                     datasets: [{
@@ -814,6 +882,7 @@
             const beliefCtx = document.getElementById('belief-chart').getContext('2d');
             beliefChart = new Chart(beliefCtx, {
                 type: 'line',
+                plugins: [whiteBackgroundPlugin],
                 data: {
                     labels: [],
                     datasets: [
@@ -932,7 +1001,15 @@
             currentParams.max_k = params.max_k;
             currentParams.graph_name = params.graph_name;
             
-            console.log('Starting simulation with params:', params);
+            console.log('🚀 Starting simulation with configuration:');
+            console.log('  - Population Size:', params.pop_size);
+            console.log('  - Max Stagnation:', params.max_stagnation);
+            console.log('  - Mutation Rate:', params.mutation_rate);
+            console.log('  - Max K (Colors):', params.max_k);
+            console.log('  - Graph:', params.graph_name);
+            console.log('  - Use Estimation Phase:', params.use_estimation_phase ? '✅ ENABLED' : '❌ DISABLED');
+            console.log('  - Fixed Seed:', params.fixed_seed ? '✅ ENABLED' : '❌ DISABLED');
+            
             socket.emit('start_simulation', params);
         }
         
@@ -962,7 +1039,7 @@
         }
         
         // Download charts as images
-        function downloadCharts() {
+        async function downloadCharts() {
             if (generationData.generations.length === 0) {
                 alert('No data available. Please run a simulation first.');
                 return;
@@ -984,25 +1061,102 @@
             beliefChart.update('active');
             
             // Wait for charts to finish rendering
-            setTimeout(() => {
-                // Download Fitness Chart
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            try {
+                // Save Fitness Chart to server
                 const fitnessCanvas = document.getElementById('fitness-chart');
-                const fitnessLink = document.createElement('a');
-                fitnessLink.download = `fitness_evolution_${Date.now()}.png`;
-                fitnessLink.href = fitnessCanvas.toDataURL('image/png', 1.0);
-                fitnessLink.click();
+                const fitnessImageData = fitnessCanvas.toDataURL('image/png', 1.0);
                 
-                // Download Belief Chart
-                setTimeout(() => {
-                    const beliefCanvas = document.getElementById('belief-chart');
-                    const beliefLink = document.createElement('a');
-                    beliefLink.download = `general_belief_${Date.now()}.png`;
-                    beliefLink.href = beliefCanvas.toDataURL('image/png', 1.0);
-                    beliefLink.click();
+                const fitnessResponse = await fetch('/api/save-chart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: fitnessImageData,
+                        type: 'fitness_evolution'
+                    })
+                });
+                
+                if (!fitnessResponse.ok) throw new Error('Failed to save fitness chart');
+                
+                // Wait a bit before saving second chart
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Save Belief Chart to server
+                const beliefCanvas = document.getElementById('belief-chart');
+                const beliefImageData = beliefCanvas.toDataURL('image/png', 1.0);
+                
+                const beliefResponse = await fetch('/api/save-chart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: beliefImageData,
+                        type: 'general_belief'
+                    })
+                });
+                
+                if (!beliefResponse.ok) throw new Error('Failed to save belief chart');
+                
+                const beliefResult = await beliefResponse.json();
+                
+                alert(`✅ Charts saved successfully to Plots directory!\n\nFiles:\n- fitness_evolution_*.png\n- general_belief_*.png`);
+                
+            } catch (error) {
+                console.error('Error saving charts:', error);
+                alert('❌ Error saving charts: ' + error.message);
+            }
+        }
+        
+        // Generate random graph
+        async function generateGraph() {
+            const nodes = parseInt(document.getElementById('gen-nodes').value);
+            const density = parseFloat(document.getElementById('gen-density').value);
+            
+            if (nodes < 5 || nodes > 200) {
+                alert('Nodes must be between 5 and 200');
+                return;
+            }
+            
+            if (density < 0.1 || density > 1.0) {
+                alert('Density must be between 0.1 and 1.0');
+                return;
+            }
+            
+            const statusEl = document.getElementById('gen-status');
+            statusEl.textContent = 'Generating...';
+            statusEl.classList.remove('hidden', 'text-red-500', 'text-green-600');
+            statusEl.classList.add('text-blue-500');
+            
+            try {
+                const response = await fetch('/api/generate-graph', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nodes, density })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusEl.textContent = `✓ Generated ${result.num_edges} edges! Loading...`;
+                    statusEl.classList.remove('text-blue-500');
+                    statusEl.classList.add('text-green-600');
                     
-                    alert('Charts downloaded successfully!');
-                }, 200);
-            }, 500);
+                    // Reload graph list and select new graph
+                    await loadAvailableGraphs();
+                    document.getElementById('graph-select').value = result.graph_name;
+                    await loadGraph(result.graph_name);
+                    
+                    setTimeout(() => statusEl.classList.add('hidden'), 3000);
+                } else {
+                    statusEl.textContent = '✗ ' + result.error;
+                    statusEl.classList.remove('text-blue-500');
+                    statusEl.classList.add('text-red-500');
+                }
+            } catch (error) {
+                statusEl.textContent = '✗ Error: ' + error.message;
+                statusEl.classList.remove('text-blue-500');
+                statusEl.classList.add('text-red-500');
+            }
         }
         
         // Save custom graph

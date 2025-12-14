@@ -294,6 +294,66 @@ def save_custom_graph():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route('/api/generate-graph', methods=['POST'])
+def generate_graph():
+    """Generate a random graph using input_generator logic"""
+    try:
+        import random
+        data = request.get_json()
+        n = int(data.get('nodes', 30))
+        density = float(data.get('density', 0.8))
+        
+        if n < 5 or n > 200:
+            return jsonify({'error': 'Nodes must be between 5 and 200'}), 400
+        
+        if density < 0.1 or density > 1.0:
+            return jsonify({'error': 'Density must be between 0.1 and 1.0'}), 400
+        
+        # Generate edges based on density
+        edges = []
+        for u in range(1, n + 1):
+            for v in range(u + 1, n + 1):
+                if random.random() < density:
+                    edges.append((u, v))
+        
+        # Find next available graph number
+        graphs_dir = Path('data/sample_graphs')
+        existing_nums = []
+        for graph_file in graphs_dir.iterdir():
+            if graph_file.is_file() and graph_file.name.startswith('graph_'):
+                try:
+                    name_parts = graph_file.name.split('_')
+                    if len(name_parts) >= 2:
+                        num_str = name_parts[-1]
+                        if num_str.isdigit():
+                            existing_nums.append(int(num_str))
+                except:
+                    pass
+        
+        next_num = max(existing_nums) + 1 if existing_nums else 8
+        graph_name = f"graph_{next_num}"
+        graph_path = graphs_dir / graph_name
+        
+        # Write edges to file
+        with open(graph_path, 'w', encoding='utf-8') as f:
+            for u, v in edges:
+                f.write(f"{u} {v}\n")
+        
+        print(f"Generated graph: {graph_name} with {n} nodes, {len(edges)} edges (density={density})")
+        
+        return jsonify({
+            'success': True,
+            'graph_name': graph_name,
+            'num_nodes': n,
+            'num_edges': len(edges),
+            'density': density
+        })
+        
+    except Exception as e:
+        print(f"Error generating graph: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/delete-graph', methods=['DELETE'])
 def delete_graph():
     """Delete a graph file"""
@@ -328,6 +388,53 @@ def delete_graph():
     except Exception as e:
         print(f"Error deleting graph: {e}")
         return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/save-chart', methods=['POST'])
+def save_chart():
+    """Save chart image to Plots directory"""
+    try:
+        import base64
+        from datetime import datetime
+        
+        data = request.get_json()
+        image_data = data.get('image', '')
+        chart_type = data.get('type', 'chart')
+        
+        if not image_data:
+            return jsonify({'error': 'No image data provided'}), 400
+        
+        # Create Plots directory if it doesn't exist
+        plots_dir = Path('Plots')
+        plots_dir.mkdir(exist_ok=True)
+        
+        # Remove data URL prefix if present
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+        
+        # Decode base64 image
+        image_bytes = base64.b64decode(image_data)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{chart_type}_{timestamp}.png"
+        filepath = plots_dir / filename
+        
+        # Save image
+        with open(filepath, 'wb') as f:
+            f.write(image_bytes)
+        
+        print(f"Chart saved: {filepath}")
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'path': str(filepath)
+        })
+        
+    except Exception as e:
+        print(f"Error saving chart: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @socketio.on('connect')
@@ -500,6 +607,7 @@ def solve_backtracking():
         data = request.get_json()
         graph = data.get('graph', {})
         color_limit = data.get('color_limit', 4)
+        algorithm_type = data.get('algorithm_type', 'optimal')  # 'standard' or 'optimal'
         
         if not graph:
             return jsonify({'error': 'No graph provided'}), 400
@@ -513,16 +621,32 @@ def solve_backtracking():
         else:
             all_colors = ["Red", "Green", "Blue", "Yellow", "Orange", "Purple"]
         
-        selected_colors = all_colors[:color_limit]
-        
         # Create analytics and solver
         analytics = PerformanceAnalytics()
-        solver = Backtracking(graph, selected_colors, analytics=analytics)
-        solution = solver.start_solving()
+        
+        # Choose algorithm type
+        if algorithm_type == 'optimal':
+            # For optimal mode, use all available colors
+            solver = Backtracking(graph, all_colors, analytics=analytics)
+            result = solver.start_optimal_solve()
+            
+            # start_optimal_solve returns (min_k, solution) or (None, None) if no solution
+            if result and result[1]:
+                colors_used, solution = result
+            else:
+                solution = None
+                colors_used = -1
+        else:  # standard
+            # For standard mode, use the color limit
+            selected_colors = all_colors[:color_limit]
+            solver = Backtracking(graph, selected_colors, analytics=analytics)
+            solution = solver.start_standard_solve()
+            colors_used = len(set(solution.values())) if solution else -1
         
         return jsonify({
             'success': solution is not None,
             'solution': solution,
+            'colors_used': colors_used,
             'analytics': {
                 'solution_found': analytics.solution_found,
                 'execution_time_ms': analytics.execution_time_ms,
@@ -532,6 +656,8 @@ def solve_backtracking():
         })
     except Exception as e:
         print(f"Error in backtracking solve: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 

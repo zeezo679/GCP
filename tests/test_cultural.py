@@ -44,7 +44,7 @@ def test_ca():
     max_k = 20
     mutation_rate = 0.01
     mutation_increase_factor = 2.0
-    ca_runner = CulturalAlgorithm(pop_size, max_stag, max_k,mutation_rate, mutation_increase_factor, graph_path)
+    ca_runner = CulturalAlgorithm(pop_size, max_stag, max_k,mutation_rate, mutation_increase_factor, graph_path,False, False)
     ca_runner.pop_space.random_graph.show()
     ca_runner.run_ca()
 

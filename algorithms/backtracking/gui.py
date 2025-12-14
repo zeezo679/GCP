@@ -78,69 +78,93 @@ class GraphColoringUI:
             return ["Red", "Green", "Blue", "Yellow", "Orange", "Purple"]
 
     def setup_sidebar(self):
-        tk.Label(self.sidebar, text="🎮 CONTROL PANEL", bg=THEME_BG, fg="white", font=("Segoe UI", 16, "bold")).pack(pady=20)
+        # 1. Title (Top)
+        tk.Label(self.sidebar, text="🎮 CONTROL PANEL", bg=THEME_BG, fg="white", font=("Segoe UI", 14, "bold")).pack(pady=(15, 10))
 
-        # --- 1. Generator ---
-        gen_frame = tk.LabelFrame(self.sidebar, text="⚡ Smart Generator", bg=THEME_BG, fg=ACCENT_COLOR, font=("Segoe UI", 10, "bold"))
-        gen_frame.pack(fill=tk.X, padx=10, pady=5)
+        # 2. Generator (Compact)
+        gen_frame = tk.LabelFrame(self.sidebar, text="⚡ Generator", bg=THEME_BG, fg=ACCENT_COLOR, font=("Segoe UI", 9, "bold"))
+        gen_frame.pack(fill=tk.X, padx=10, pady=2)
         
-        tk.Label(gen_frame, text="Nodes:", bg=THEME_BG, fg="white").grid(row=0, column=0)
-        self.entry_nodes = tk.Entry(gen_frame, width=4); self.entry_nodes.grid(row=0, column=1)
-        self.entry_nodes.insert(0, "20") 
+        tk.Label(gen_frame, text="N:", bg=THEME_BG, fg="white").pack(side=tk.LEFT, padx=2)
+        self.entry_nodes = tk.Entry(gen_frame, width=3); self.entry_nodes.pack(side=tk.LEFT, padx=2); self.entry_nodes.insert(0, "15")
         
-        tk.Label(gen_frame, text="Edges:", bg=THEME_BG, fg="white").grid(row=0, column=2)
-        self.entry_edges = tk.Entry(gen_frame, width=4); self.entry_edges.grid(row=0, column=3)
-        self.entry_edges.insert(0, "30")
+        tk.Label(gen_frame, text="E:", bg=THEME_BG, fg="white").pack(side=tk.LEFT, padx=2)
+        self.entry_edges = tk.Entry(gen_frame, width=3); self.entry_edges.pack(side=tk.LEFT, padx=2); self.entry_edges.insert(0, "25")
         
-        tk.Button(gen_frame, text="🌌 Planets", command=self.generate_random_graph, bg="#27AE60", fg="white", relief="flat").grid(row=0, column=4, padx=5)
+        tk.Button(gen_frame, text="Planets", command=self.generate_random_graph, bg="#27AE60", fg="white", relief="flat", font=("Arial", 8)).pack(side=tk.RIGHT, padx=5, pady=2)
 
-        # --- 2. Save / Load Manager (الجزء الجديد) 🔥 ---
-        save_frame = tk.LabelFrame(self.sidebar, text="💾 Project Manager", bg=THEME_BG, fg="#3498DB", font=("Segoe UI", 10, "bold"))
-        save_frame.pack(fill=tk.X, padx=10, pady=10)
-
-        # Save Button
-        tk.Button(save_frame, text="💾 Save Current Graph", command=self.save_graph_to_file, bg="#2980B9", fg="white").pack(fill=tk.X, padx=5, pady=5)
+        # 3. Project Manager (Save/Load)
+        save_frame = tk.Frame(self.sidebar, bg=THEME_BG)
+        save_frame.pack(fill=tk.X, padx=10, pady=5)
+        tk.Button(save_frame, text="💾 Save", command=self.save_graph_to_file, bg="#2980B9", fg="white", width=8).pack(side=tk.LEFT, padx=1)
         
-        # Load Section
-        tk.Label(save_frame, text="Load Saved Graph:", bg=THEME_BG, fg="#BDC3C7", anchor="w").pack(fill=tk.X, padx=5)
-        self.combo_files = ttk.Combobox(save_frame, state="readonly")
-        self.combo_files.pack(fill=tk.X, padx=5, pady=2)
-        
-        tk.Button(save_frame, text="📂 Load Selected", command=self.load_graph_from_file, bg="#34495E", fg="white").pack(fill=tk.X, padx=5, pady=5)
+        self.combo_files = ttk.Combobox(save_frame, state="readonly", width=12)
+        self.combo_files.pack(side=tk.LEFT, padx=1)
+        tk.Button(save_frame, text="📂 Load", command=self.load_graph_from_file, bg="#34495E", fg="white", width=6).pack(side=tk.LEFT, padx=1)
 
 
-        # --- 3. Tools ---
-        tk.Label(self.sidebar, text="🛠️ TOOLS", bg=THEME_BG, fg="#BDC3C7").pack(pady=(10, 2))
-        self.btn_node = self.create_button("📍 Add Node", "NODE")
-        self.btn_edge = self.create_button("🔗 Connect", "EDGE")
-        self.btn_del = self.create_button("🗑️ Delete", "DELETE", color="#C0392B")
+        # 4. Tools (Compact)
+        tool_frame = tk.Frame(self.sidebar, bg=THEME_BG)
+        tool_frame.pack(fill=tk.X, padx=10, pady=5)
+        self.btn_node = self.create_button(tool_frame, "📍 Node", "NODE")
+        self.btn_edge = self.create_button(tool_frame, "🔗 Link", "EDGE")
+        self.btn_del = self.create_button(tool_frame, "🗑️ Del", "DELETE", color="#C0392B")
 
-        # --- 4. Palette ---
-        tk.Label(self.sidebar, text=f"🎨 PALETTE ({len(self.available_colors)})", bg=THEME_BG, fg="#BDC3C7").pack(pady=(10, 2))
+        # 5. Palette (Compact Grid)
+        tk.Label(self.sidebar, text=f"🎨 PALETTE", bg=THEME_BG, fg="#BDC3C7", font=("Arial", 8)).pack(pady=(5, 0))
         palette_frame = tk.Frame(self.sidebar, bg=THEME_BG)
-        palette_frame.pack(pady=5, padx=10, fill=tk.X)
+        palette_frame.pack(pady=2, padx=10)
         row, col = 0, 0
         for color_name in self.available_colors:
             try:
-                lbl = tk.Label(palette_frame, bg=color_name.lower(), width=2, height=1, relief="ridge",  borderwidth=1)
+                lbl = tk.Label(palette_frame, bg=color_name.lower(), width=2, height=1, relief="ridge", borderwidth=1)
                 lbl.grid(row=row, column=col, padx=1, pady=1)
                 col += 1
                 if col > 7: col = 0; row += 1
             except: pass
 
-        # --- 5. Solve Actions ---
-        tk.Frame(self.sidebar, height=2, bg="grey").pack(fill=tk.X, padx=10, pady=10)
-        tk.Label(self.sidebar, text="Colors Limit:", bg=THEME_BG, fg="white").pack()
-        self.limit_scale = tk.Scale(self.sidebar, from_=1, to=len(self.available_colors), orient=tk.HORIZONTAL, bg=THEME_BG, fg="white", highlightthickness=0)
-        self.limit_scale.set(4)
-        self.limit_scale.pack(fill=tk.X, padx=20)
+        # ----------------------------------------------------
+        # 🔥 BOTTOM SECTION (Fixed at bottom) 🔥
+        # ----------------------------------------------------
+        bottom_frame = tk.Frame(self.sidebar, bg=THEME_BG)
+        bottom_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
 
-        tk.Button(self.sidebar, text="🚀 SOLVE", command=self.solve_graph_action, bg=ACCENT_COLOR, fg="white", font=("Arial", 12, "bold"), height=2).pack(fill=tk.X, padx=10, pady=10)
-        tk.Button(self.sidebar, text="🖌️ Reset Colors", command=self.reset_colors, bg="#8E44AD", fg="white").pack(fill=tk.X, padx=10, pady=2)
-        tk.Button(self.sidebar, text="🧹 Clear All", command=self.clear_canvas, bg="#7F8C8D", fg="white").pack(fill=tk.X, padx=10, pady=5)
-
-        self.log_lbl = tk.Label(self.sidebar, text="Ready.", bg="#34495E", fg="#2ECC71", anchor="w", padx=5)
+        # Log (Last item)
+        self.log_lbl = tk.Label(bottom_frame, text="Ready.", bg="#34495E", fg="#2ECC71", anchor="w", padx=5)
         self.log_lbl.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Clear/Reset Buttons (Above Log)
+        action_frame = tk.Frame(bottom_frame, bg=THEME_BG)
+        action_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+        tk.Button(action_frame, text="Reset Colors", command=self.reset_colors, bg="#8E44AD", fg="white", width=12).pack(side=tk.LEFT, padx=2)
+        tk.Button(action_frame, text="Clear All", command=self.clear_canvas, bg="#7F8C8D", fg="white", width=12).pack(side=tk.RIGHT, padx=2)
+
+        # ----------------------------------------------------
+        # 🔥 SOLVING SECTION (Between Palette and Bottom) 🔥
+        # ----------------------------------------------------
+        solve_frame = tk.Frame(self.sidebar, bg=THEME_BG)
+        solve_frame.pack(fill=tk.X, padx=10, pady=10) # Pack normally to take remaining space
+
+        tk.Frame(solve_frame, height=2, bg="grey").pack(fill=tk.X, pady=5)
+        
+        # Mode 1
+        tk.Label(solve_frame, text="MODE 1: Standard", bg=THEME_BG, fg="#BDC3C7", font=("Segoe UI", 9, "bold")).pack(anchor="w")
+        self.limit_scale = tk.Scale(solve_frame, from_=1, to=len(self.available_colors), orient=tk.HORIZONTAL, bg=THEME_BG, fg="white", highlightthickness=0)
+        self.limit_scale.set(4)
+        self.limit_scale.pack(fill=tk.X)
+        tk.Button(solve_frame, text="⚡ Run Standard", command=self.run_standard_mode, bg="#E67E22", fg="white", font=("Arial", 10, "bold")).pack(fill=tk.X, pady=2)
+
+        # Mode 2
+        tk.Frame(solve_frame, height=1, bg="grey").pack(fill=tk.X, pady=5)
+        tk.Label(solve_frame, text="MODE 2: Scientific", bg=THEME_BG, fg="#BDC3C7", font=("Segoe UI", 9, "bold")).pack(anchor="w")
+        tk.Button(solve_frame, text="🏆 Find Min Colors", command=self.run_optimized_mode, bg="#2980B9", fg="white", font=("Arial", 10, "bold")).pack(fill=tk.X, pady=2)
+
+    def create_button(self, parent, text, mode, color="#34495E"):
+        btn = tk.Button(parent, text=text, bg=color, fg="white", relief="flat", padx=5, pady=2, font=("Arial", 9),
+                        command=lambda: self.set_mode(mode, btn))
+        btn.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+        if mode == "NODE": self.active_btn = btn 
+        return btn
 
     def refresh_saved_files(self):
         """ تحديث القائمة بأسماء الملفات الموجودة """
@@ -370,30 +394,60 @@ class GraphColoringUI:
     def solve_graph_action(self):
         if not self.nodes: return
         self.reset_colors() 
+        
         graph_data = self.adj_list.copy()
         for nid in self.nodes:
             if str(nid) not in graph_data: graph_data[str(nid)] = []
+
         limit = self.limit_scale.get()
         selected_colors = self.available_colors[:limit]
+        
+        # Check Connectivity
         if not Helper.is_graph_connected(graph_data):
-            messagebox.showinfo("Smart Layout", "Disconnected Graph Detected!")
-            
+            messagebox.showinfo("Note", "Disconnected Graph Detected!")
+
+        # Analytics
         analytics = PerformanceAnalytics()
+        
+        # Create Solver
         solver = Backtracking(graph_data, selected_colors, analytics=analytics)
-        solution = solver.start_solving()
+        
+        solution = solver.start_standard_solve()
+
         if solution:
+            self.log_status("Standard Solution Found! Animating...")
             self.animate_coloring(solution)
-            self.show_dashboard(analytics)
+            self.show_dashboard(analytics) # اعرض الداشبورد
         else:
-            messagebox.showerror("Failed", f"Need more than {limit} colors!")
+            messagebox.showerror("Failed", f"Standard Backtracking failed with {limit} colors!")
             self.show_dashboard(analytics)
     
-    def create_button(self, text, mode, color="#34495E"):
-        btn = tk.Button(self.sidebar, text=text, bg=color, fg="white", relief="flat", padx=10, pady=5,
-                        command=lambda: self.set_mode(mode, btn))
-        btn.pack(fill=tk.X, padx=15, pady=2)
-        if mode == "NODE": self.active_btn = btn 
-        return btn
+    def find_min_colors_action(self):
+        if not self.nodes: return
+        self.reset_colors()
+        
+        graph_data = self.adj_list.copy()
+        for nid in self.nodes:
+            if str(nid) not in graph_data: graph_data[str(nid)] = []
+            
+        all_colors = self.available_colors
+        
+        # Analytics عشان نحسب التكلفة الكلية
+        analytics = PerformanceAnalytics()
+        solver = Backtracking(graph_data, all_colors, analytics=analytics)
+        
+        # 🔥 التعديل هنا: نداء الدالة الـ Optimal 🔥
+        min_k, solution = solver.start_optimal_solve()
+        
+        if solution:
+            self.animate_coloring(solution)
+            self.show_dashboard(analytics) # اعرض الداشبورد برضه
+            
+            messagebox.showinfo("Optimal Solution Found! 🌟", 
+                                f"Minimum Colors Needed: {min_k}\n"
+                                f"This is the scientifically minimal number (Chromatic Number).")
+        else:
+            messagebox.showerror("Error", "Could not find a solution!")
     
     def set_mode(self, mode, btn_ref):
         self.current_mode = mode
@@ -406,58 +460,151 @@ class GraphColoringUI:
     
     def on_resize(self, event): pass
 
-    def show_dashboard(self, analytics):
-        # 1. نافذة جديدة (Popup)
+    def show_dashboard(self, analytics, mode_title, result_info):
         dash = tk.Toplevel(self.root)
-        dash.title("📊 Performance Analytics Dashboard")
-        dash.geometry("750x550")
+        dash.title(f"📊 Analytics - {mode_title}")
+        dash.geometry("800x650") # كبرنا النافذة شوية
         dash.configure(bg="white")
 
-        # 2. رسم الشارت (Bar Chart)
-        # بنقارن عدد النودز اللي زورناها بعدد المرات اللي رجعنا فيها
-        fig = Figure(figsize=(5, 3), dpi=100)
+        # --- Header Section (ثابت فوق) ---
+        header_frame = tk.Frame(dash, bg="#ECF0F1", pady=15)
+        header_frame.pack(fill=tk.X)
+        
+        # عنوان الـ Mode بخط كبير
+        tk.Label(header_frame, text=mode_title, font=("Segoe UI", 16, "bold"), bg="#ECF0F1", fg="#2C3E50").pack()
+        # نتيجة الحل (أخضر لو نجح، أحمر لو فشل)
+        fg_color = "#27AE60" if analytics.solution_found else "#C0392B"
+        tk.Label(header_frame, text=result_info, font=("Segoe UI", 12, "bold"), bg="#ECF0F1", fg=fg_color).pack(pady=(5,0))
+
+        # --- NOTEBOOK (TABS SYSTEM) --- 🔥 التعديل الجوهري 🔥
+        notebook = ttk.Notebook(dash)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # تاب 1: الرسوم البيانية
+        chart_tab = tk.Frame(notebook, bg="white")
+        notebook.add(chart_tab, text="   📈 Charts & Graphs   ")
+
+        # تاب 2: الجدول
+        table_tab = tk.Frame(notebook, bg="white")
+        notebook.add(table_tab, text="   📋 Detailed Data Table   ")
+
+        # ---------------------------
+        # تصميم تاب 1 (الرسم البياني)
+        # ---------------------------
+        fig = Figure(figsize=(6, 4), dpi=100) # رسمة أكبر وأوضح
         ax = fig.add_subplot(111)
         
         metrics = ['Search Space\n(Nodes Visited)', 'Pruning Operations\n(Backtracks)']
         values = [analytics.nodes_visited, analytics.backtracks_count]
-        colors = ['#3498DB', '#E74C3C'] # أزرق وأحمر
+        colors = ['#3498DB', '#E74C3C']
 
         bars = ax.bar(metrics, values, color=colors, width=0.5)
-        ax.set_title('Backtracking Efficiency Analysis', fontsize=12, fontweight='bold')
+        ax.set_title('Backtracking Algorithm Efficiency', fontsize=12, fontweight='bold', pad=15)
         ax.set_ylabel('Count')
+        ax.grid(axis='y', linestyle='--', alpha=0.7) # خطوط شبكة خفيفة
         
-        # كتابة الأرقام فوق العواميد
+        # كتابة الأرقام فوق العواميد بخط واضح
         for bar in bars:
             height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{int(height)}', ha='center', va='bottom')
+            ax.text(bar.get_x() + bar.get_width()/2., height + (height*0.01), # رفعنا الرقم سنة فوق العمود
+                    f'{int(height)}', ha='center', va='bottom', fontsize=10, fontweight='bold')
 
-        # دمج الرسمة في النافذة
-        canvas_widget = FigureCanvasTkAgg(fig, master=dash)
+        canvas_widget = FigureCanvasTkAgg(fig, master=chart_tab)
         canvas_widget.draw()
-        canvas_widget.get_tk_widget().pack(pady=10, fill=tk.BOTH, expand=True)
+        canvas_widget.get_tk_widget().pack(pady=20, fill=tk.BOTH, expand=True)
 
-        # 3. رسم الجدول (تفاصيل الأرقام)
-        table_frame = tk.Frame(dash)
-        table_frame.pack(fill=tk.X, padx=20, pady=10)
+        # ---------------------------
+        # تصميم تاب 2 (الجدول)
+        # ---------------------------
+        # ستايل للجدول عشان يبقى شكله حديث
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Segoe UI", 11, "bold"), background="#BDC3C7", foreground="#2C3E50")
+        style.configure("Treeview", font=("Segoe UI", 11), rowheight=30)
 
         columns = ("Metric", "Value")
-        tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=4)
-        
-        tree.heading("Metric", text="Metric")
-        tree.heading("Value", text="Value")
-        tree.column("Metric", anchor="center"); tree.column("Value", anchor="center")
+        tree = ttk.Treeview(table_tab, columns=columns, show="headings", height=8, style="Treeview")
+        tree.heading("Metric", text="Performance Metric"); tree.heading("Value", text="Measured Value")
+        tree.column("Metric", anchor="w", width=300); tree.column("Value", anchor="center", width=300)
 
         # تعبئة البيانات
-        status = "✅ Success" if analytics.solution_found else "❌ Failed"
-        tree.insert("", tk.END, values=("Algorithm Status", status))
-        tree.insert("", tk.END, values=("Execution Time", f"{analytics.execution_time_ms:.4f} ms"))
-        tree.insert("", tk.END, values=("Total Recursive Calls", analytics.nodes_visited))
-        tree.insert("", tk.END, values=("Backtracks (Dead Ends)", analytics.backtracks_count))
+        status_icon = "✅ Success" if analytics.solution_found else "❌ Failed"
+        tree.insert("", tk.END, values=("Algorithm Status", status_icon))
+        tree.insert("", tk.END, values=("Total Execution Time", f"{analytics.execution_time_ms:.4f} ms"))
+        tree.insert("", tk.END, values=("Search Space (Nodes Visited)", analytics.nodes_visited))
+        tree.insert("", tk.END, values=("Pruning Operations (Backtracks)", analytics.backtracks_count))
+        
+        # سطر فاضي فاصل
+        tree.insert("", tk.END, values=("", "")) 
+        
+        # تفاصيل النتيجة
+        tree.insert("", tk.END, values=("Final Result Details", result_info.replace("\n", ". ")))
 
-        tree.pack(fill=tk.X)
+        # Scrollbar للجدول (احتياطي لو البيانات كتير)
+        scrollbar = ttk.Scrollbar(table_tab, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-        tk.Button(dash, text="Close Report", command=dash.destroy, bg="#2C3E50", fg="white").pack(pady=10)
+        # --- Footer (زرار الإغلاق) ---
+        tk.Button(dash, text="Close Analytics Report", command=dash.destroy, bg="#34495E", fg="white", font=("Segoe UI", 10)).pack(pady=15)
+    
+    #! Standard Backtracking
+    def run_standard_mode(self):
+        if not self.nodes:
+            messagebox.showwarning("Warning", "Draw a graph first!")
+            return
+        
+        self.reset_colors()
+        graph_data = self.adj_list.copy()
+        for nid in self.nodes:
+            if str(nid) not in graph_data: graph_data[str(nid)] = []
+            
+        limit = self.limit_scale.get()
+        selected_colors = self.available_colors[:limit]
+        
+        analytics = PerformanceAnalytics()
+        solver = Backtracking(graph_data, selected_colors, analytics=analytics)
+        
+        self.log_status(f"Running Standard Backtracking ({limit} colors)...")
+        solution = solver.start_standard_solve()
+        
+        if solution:
+            self.animate_coloring(solution)
+            
+            # حساب عدد الألوان المستخدمة عشان نعرضه
+            used = set(solution.values())
+            info_text = f"Solved using {len(used)} colors (Limit: {limit})"
+            
+            # نفتح الداشبورد بالبيانات الجديدة
+            self.show_dashboard(analytics, "Standard Mode (Fast)", info_text)
+        else:
+            self.show_dashboard(analytics, "Standard Mode (Failed)", f"Failed to solve with {limit} colors.")
+    
+    # !Optimized Minimization
+    def run_optimized_mode(self):
+        if not self.nodes:
+            messagebox.showwarning("Warning", "Draw a graph first!")
+            return
+        
+        self.reset_colors()
+        graph_data = self.adj_list.copy()
+        for nid in self.nodes:
+            if str(nid) not in graph_data: graph_data[str(nid)] = []
+        
+        analytics = PerformanceAnalytics()
+        solver = Backtracking(graph_data, self.available_colors, analytics=analytics)
+        
+        self.log_status("Calculating Minimum Chromatic Number...")
+        min_k, solution = solver.start_optimal_solve()
+        
+        if solution:
+            self.animate_coloring(solution)
+            
+            info_text = f"✅ Optimal Solution Found!\nMinimum Colors Needed: {min_k}"
+            
+            self.show_dashboard(analytics, "Scientific Mode (Optimized)", info_text)
+        else:
+            self.show_dashboard(analytics, "Scientific Mode (Failed)", "Could not solve even with all colors.")
 
 if __name__ == "__main__":
     root = tk.Tk()

@@ -214,9 +214,30 @@
                 
                 <!-- Solver Section -->
                 <hr style="border: 1px solid #4A5F7F; margin: 1rem 0;">
-                <label style="font-size: 0.875rem; color: white; display: block; margin-bottom: 0.5rem;">Colors Limit:</label>
-                <input type="range" id="limit-scale" min="1" max="10" value="4" style="width: 100%;">
-                <div style="text-align: center; color: #E67E22; font-weight: bold; font-size: 1.25rem;" id="limit-display">4</div>
+                
+                <!-- Algorithm Selection -->
+                <div style="margin-bottom: 1rem;">
+                    <label style="font-size: 0.875rem; color: #BDC3C7; display: block; margin-bottom: 0.5rem;">🔬 ALGORITHM MODE:</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; cursor: pointer; color: #ECF0F1; background: #34495E; padding: 0.5rem; border-radius: 6px;">
+                            <input type="radio" name="algorithm-type" value="standard" checked style="margin-right: 0.5rem;">
+                            <span style="font-size: 0.875rem;">⚡ Standard (Fixed Colors)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; color: #ECF0F1; background: #34495E; padding: 0.5rem; border-radius: 6px;">
+                            <input type="radio" name="algorithm-type" value="optimal" style="margin-right: 0.5rem;">
+                            <span style="font-size: 0.875rem;">🏆 Optimal (Find Chromatic Number)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="color-limit-section" style="margin-bottom: 1rem; transition: opacity 0.3s;">
+                    <label style="font-size: 0.875rem; color: #BDC3C7; display: block; margin-bottom: 0.5rem;">🎨 Colors Limit (Standard Mode):</label>
+                    <input type="range" id="limit-scale" min="1" max="10" value="4" style="width: 100%;">
+                    <div style="text-align: center; color: #E67E22; font-weight: bold; font-size: 1.25rem;" id="limit-display">4</div>
+                    <div style="font-size: 0.75rem; color: #7F8C8D; text-align: center; margin-top: 0.25rem;">
+                        (Not used in Optimal mode)
+                    </div>
+                </div>
                 
                 <button id="btn-solve" class="btn btn-primary" style="font-size: 1.125rem; padding: 1rem; margin-top: 1rem;">🚀 SOLVE</button>
                 <button id="btn-reset" class="btn btn-purple">🖌️ Reset Colors</button>
@@ -316,6 +337,22 @@
         }
         
         document.getElementById('limit-scale').addEventListener('input', updateLimitDisplay);
+        
+        // Toggle color limit visibility based on algorithm type
+        document.querySelectorAll('input[name="algorithm-type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const limitSection = document.getElementById('color-limit-section');
+                if (e.target.value === 'optimal') {
+                    limitSection.style.opacity = '0.5';
+                    limitSection.style.pointerEvents = 'none';
+                    logStatus('Optimal mode will find minimum colors needed');
+                } else {
+                    limitSection.style.opacity = '1';
+                    limitSection.style.pointerEvents = 'auto';
+                    logStatus('Standard mode with color limit selected');
+                }
+            });
+        });
         
         // Load Saved Graphs List
         function refreshSavedFiles() {
@@ -590,6 +627,8 @@
             logStatus('Solving...');
             
             const limit = parseInt(document.getElementById('limit-scale').value);
+            const algorithmType = document.querySelector('input[name="algorithm-type"]:checked').value;
+            
             const graphData = {};
             Object.keys(adjList).forEach(key => {
                 graphData[key] = adjList[key].map(String);
@@ -601,29 +640,44 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         graph: graphData,
-                        color_limit: limit
+                        color_limit: limit,
+                        algorithm_type: algorithmType
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success && result.solution) {
-                    await animateColoring(result.solution);
-                    showDashboard(result.analytics);
+                    // Animate the coloring
+                    await animateColoring(result.solution, result.colors_used);
+                    
+                    // Show success message based on algorithm type
+                    if (algorithmType === 'optimal') {
+                        logStatus(`✅ Optimal solution found: ${result.colors_used} colors (chromatic number)`);
+                    } else {
+                        logStatus(`✅ Solution found using ${result.colors_used} colors`);
+                    }
+                    
+                    // Show analytics dashboard
+                    showDashboard(result.analytics, result.colors_used, algorithmType);
                 } else {
-                    alert(`Failed! Need more than ${limit} colors.`);
+                    const message = algorithmType === 'optimal' 
+                        ? `❌ Failed! Graph cannot be colored.`
+                        : `❌ Failed! Need more than ${limit} colors.`;
+                    alert(message);
+                    logStatus(message);
                     if (result.analytics) {
-                        showDashboard(result.analytics);
+                        showDashboard(result.analytics, -1, algorithmType);
                     }
                 }
             } catch (error) {
                 alert('Error solving graph: ' + error);
-                logStatus('Error occurred');
+                logStatus('❌ Error occurred');
             }
         });
         
-        async function animateColoring(solution) {
-            const delay = 200;
+        async function animateColoring(solution, colorsUsed) {
+            const delay = 150; // Slightly faster animation
             const usedColors = new Set();
             
             for (const [nodeId, colorName] of Object.entries(solution)) {
@@ -636,32 +690,55 @@
                 }
             }
             
-            alert(`Coloring Finished! 🎨\nUsed ${usedColors.size} colors.`);
+            // Don't show alert during animation - let the dashboard show the info
         }
         
-        function showDashboard(analytics) {
+        function showDashboard(analytics, colorsUsed, algorithmType) {
             const modal = document.getElementById('dashboard-modal');
             modal.classList.add('active');
+            
+            // Update modal title based on algorithm type
+            const modalTitle = document.querySelector('#dashboard-modal h2');
+            if (algorithmType === 'optimal') {
+                modalTitle.textContent = '📊 Optimal Backtracking - Performance Analytics';
+            } else {
+                modalTitle.textContent = '📊 Standard Backtracking - Performance Analytics';
+            }
             
             // Update metrics table
             const table = document.getElementById('metrics-table');
             const status = analytics.solution_found ? '✅ Success' : '❌ Failed';
+            
+            let colorsRow = '';
+            if (colorsUsed !== undefined && colorsUsed > 0) {
+                const colorLabel = algorithmType === 'optimal' 
+                    ? 'Chromatic Number (Minimum Colors)'
+                    : 'Colors Used';
+                colorsRow = `
+                <tr style="background: #f0f9ff;">
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; font-weight: bold;">${colorLabel}</td>
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #E67E22; font-size: 1.2rem;">${colorsUsed}</td>
+                </tr>
+                `;
+            }
+            
             table.innerHTML = `
                 <tr>
                     <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Algorithm Status</td>
                     <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${status}</td>
                 </tr>
+                ${colorsRow}
                 <tr>
                     <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Execution Time</td>
                     <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${analytics.execution_time_ms.toFixed(4)} ms</td>
                 </tr>
                 <tr>
-                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Total Recursive Calls</td>
-                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${analytics.nodes_visited}</td>
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Total Recursive Calls (Search Space)</td>
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${analytics.nodes_visited.toLocaleString()}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Backtracks (Dead Ends)</td>
-                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${analytics.backtracks_count}</td>
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0;">Backtracks (Pruning Operations)</td>
+                    <td style="padding: 0.75rem; border: 1px solid #e2e8f0; text-align: center;">${analytics.backtracks_count.toLocaleString()}</td>
                 </tr>
             `;
             
@@ -693,7 +770,12 @@
                     },
                     scales: {
                         y: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
                         }
                     }
                 }

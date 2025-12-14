@@ -103,9 +103,15 @@ class CulturalAlgorithm: # orchestrator
                 current_mutation_rate #mutation factor
             )
 
-            self.population.extend(new_individuals)
-            self.population.sort(key=lambda x: x.fitness) 
-            self.population = self.population[:self.pop_size]
+            #re evaluate just to make sure that every individual has calculated fitness
+            for ind in new_individuals:
+                ind.fitness = self.pop_space.calculate_fitness(ind)
+            
+          
+            combined = self.population + new_individuals
+            combined.sort(key=lambda x: x.fitness)
+            self.population = combined[:self.pop_size]
+        
 
             # Monitoring 
             if T > 0:

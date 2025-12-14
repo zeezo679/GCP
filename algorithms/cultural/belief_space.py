@@ -46,7 +46,7 @@ class BeliefSpace:
 
         for belief_group, individuals in groups_to_update.items():
 
-            best_individual = min(individuals, key=lambda x: x.fitness)
+            best_individual = min(individuals, key=lambda x: x.fitness) #keep track of the best individual to check the ratio of improvement
             current_best_fitness = best_individual.fitness
 
             if belief_group not in self.group_metrics:
